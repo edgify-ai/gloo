@@ -169,7 +169,10 @@ void Pair::listen() {
     signalAndThrowException(GLOO_ERROR_MSG("setsockopt: ", strerror(errno)));
   }
 
-  rv = bind(fd, (const sockaddr*)&attr.ai_addr, attr.ai_addrlen);
+  // set port - IPv4 assumed
+  (*(struct sockaddr_in*)&attr.ai_addr).sin_port = htons(attr.port);
+
+    rv = bind(fd, (const sockaddr*)&attr.ai_addr, attr.ai_addrlen);
   if (rv == -1) {
     ::close(fd);
     signalAndThrowException(GLOO_ERROR_MSG("bind: ", strerror(errno)));
