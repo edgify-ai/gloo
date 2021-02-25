@@ -169,10 +169,18 @@ void Pair::listen() {
     signalAndThrowException(GLOO_ERROR_MSG("setsockopt: ", strerror(errno)));
   }
 
-  // set port - IPv4 assumed
-  (*(struct sockaddr_in*)&attr.ai_addr).sin_port = htons(attr.port);
+  // set the port
+  auto family = (*(struct sockaddr_in*)&attr.ai_addr).sin_family;
+  // IPv4
+  if (family == AF_INET){
+      (*(struct sockaddr_in*)&attr.ai_addr).sin_port = htons(attr.port);
+  }
+  // IPv6
+  else{
+      (*(struct sockaddr_in6*)&attr.ai_addr).sin6_port = htons(attr.port);
+  }
 
-    rv = bind(fd, (const sockaddr*)&attr.ai_addr, attr.ai_addrlen);
+  rv = bind(fd, (const sockaddr*)&attr.ai_addr, attr.ai_addrlen);
   if (rv == -1) {
     ::close(fd);
     signalAndThrowException(GLOO_ERROR_MSG("bind: ", strerror(errno)));
