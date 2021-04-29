@@ -11,6 +11,9 @@
 #include "gloo/common/logging.h"
 #include "gloo/transport/address.h"
 
+#include <iostream>
+#include <fstream>
+
 namespace gloo {
 namespace rendezvous {
 
@@ -34,42 +37,65 @@ std::vector<char> Context::extractAddress(
 void Context::connectFullMesh(
     rendezvous::Store& store,
     std::shared_ptr<transport::Device>& dev) {
-  std::vector<char> allBytes;
+    std::vector<char> allBytes;
 
-  // Create pairs
-  auto transportContext = dev->createContext(rank, size);
-  transportContext->setTimeout(getTimeout());
-  for (int i = 0; i < size; i++) {
-    if (i == rank) {
-      continue;
+    std::ofstream glooLog;
+    glooLog.open("Edgify_glooLog" , std::ofstream::out | std::ofstream::app);
+    glooLog << "connectFullMesh started for rank: " << rank << "\n";
+    glooLog.close();
+    // Create pairs
+    auto transportContext = dev->createContext(rank, size);
+    transportContext->setTimeout(getTimeout());
+    for (int i = 0; i < size; i++) {
+        if (i == rank) {
+          continue;
+        }
+
+        auto& pair = transportContext->createPair(i);
+        auto addrBytes = pair->address().bytes();
+        allBytes.insert(allBytes.end(), addrBytes.begin(), addrBytes.end());
     }
 
-    auto& pair = transportContext->createPair(i);
-    auto addrBytes = pair->address().bytes();
-    allBytes.insert(allBytes.end(), addrBytes.begin(), addrBytes.end());
+    glooLog.open("Edgify_glooLog" , std::ofstream::out | std::ofstream::app);
+    glooLog << "connectFullMesh created pairs rank: " << rank << "\n";
+    glooLog.close();
+
+    std::ostringstream storeKey;
+    storeKey << rank;
+    store.set(storeKey.str(), allBytes);
+
+    glooLog.open("Edgify_glooLog" , std::ofstream::out | std::ofstream::app);
+    glooLog << "connectFullMesh called set for rank: " << rank << "\n";
+    glooLog.close();
+
+    // Connect every pair
+    for (int i = 0; i < size; i++) {
+        if (i == rank) {
+          continue;
+        }
+        // Wait for address of other side of this pair to become available
+        std::ostringstream key;
+        key << i;
+        glooLog.open("Edgify_glooLog" , std::ofstream::out | std::ofstream::app);
+        glooLog << "connectFullMesh started wait, rank: " << rank << " for " << i <<"\n";
+        glooLog.close();
+
+        store.wait({key.str()}, getTimeout()); TODO
+
+        glooLog.open("Edgify_glooLog" , std::ofstream::out | std::ofstream::app);
+        glooLog << "connectFullMesh finished wait, rank: " << rank << " for " << i <<"\n";
+        glooLog.close();
+
+
+        // Connect to other side of this pair
+        auto allAddrs = store.get(key.str());
+        auto addr = extractAddress(allAddrs, i);
+
+        glooLog.open("Edgify_glooLog" , std::ofstream::out | std::ofstream::app);
+        glooLog << "connectFullMesh called connect pair, from rank: " << rank << " to " << i <<"\n";
+        glooLog.close();
+        transportContext->getPair(i)->connect(addr);
   }
-
-  std::ostringstream storeKey;
-  storeKey << rank;
-  store.set(storeKey.str(), allBytes);
-
-  // Connect every pair
-  for (int i = 0; i < size; i++) {
-    if (i == rank) {
-      continue;
-    }
-
-    // Wait for address of other side of this pair to become available
-    std::ostringstream key;
-    key << i;
-    store.wait({key.str()}, getTimeout());
-
-    // Connect to other side of this pair
-    auto allAddrs = store.get(key.str());
-    auto addr = extractAddress(allAddrs, i);
-    transportContext->getPair(i)->connect(addr);
-  }
-
   device_ = dev;
   transportContext_ = std::move(transportContext);
 }

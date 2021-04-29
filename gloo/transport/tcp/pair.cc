@@ -12,6 +12,11 @@
 #include <algorithm>
 #include <sstream>
 
+#include <iostream>
+#include <fstream>
+#include <arpa/inet.h>
+#include <ctime>
+
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -169,10 +174,18 @@ void Pair::listen() {
     signalAndThrowException(GLOO_ERROR_MSG("setsockopt: ", strerror(errno)));
   }
 
+  ////////
+  std::ofstream glooLog;
+
   // update the port number to be port+rank to avoid gaps
   int selfRank = context_->rank;
   int adjRank = (selfRank > rank_ ? rank_ : rank_ -1);
   uint16_t adjPort = attr.port + adjRank;
+  char host[INET_ADDRSTRLEN];
+  inet_ntop( AF_INET, &(*(struct sockaddr_in*)&attr.ai_addr).sin_addr, host, sizeof( host ));
+
+//  glooLog << std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count() << ", LISTEN my rank is " <<selfRank <<  " I'm opening a port to " << rank_ << " original port: " <<attr.port<< " adjusted port: " <<adjPort << " host: " << host <<"\n";
+//  file << std::format("my rank is {0},  I'm opening a port to {1},  original port: {2}, adjusted port: {3}, host: {4} \n", selfRank, rank_, attr.port, adjPort, host);
 
   // set the port
   auto family = (*(struct sockaddr_in*)&attr.ai_addr).sin_family;
@@ -184,8 +197,10 @@ void Pair::listen() {
   else{
       (*(struct sockaddr_in6*)&attr.ai_addr).sin6_port = htons(adjPort);
   }
+//  auto port = (*(struct sockaddr_in*)&attr.ai_addr).sin_port;
 
   rv = bind(fd, (const sockaddr*)&attr.ai_addr, attr.ai_addrlen);
+
   if (rv == -1) {
     ::close(fd);
     signalAndThrowException(GLOO_ERROR_MSG("bind: ", strerror(errno)));
@@ -200,8 +215,20 @@ void Pair::listen() {
     signalAndThrowException(GLOO_ERROR_MSG("listen: ", strerror(errno)));
   }
 
+
   // Keep copy of address
   self_ = Address::fromSockName(fd);
+
+   //save addresss used as ss
+    struct sockaddr_storage ss;
+    socklen_t addrlen = sizeof(ss);
+
+    auto x = getsockname(fd, (struct sockaddr*)&ss, &addrlen);
+    auto port = (*(struct sockaddr_in*)&ss).sin_port;
+
+    glooLog.open("gloo_log" , std::ofstream::out | std::ofstream::app);
+    glooLog << std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count() << ", LISTEN() with selfRank: " << selfRank << " called with port " << ntohs(port) << "\n";
+    glooLog.close();
 
   // Register with device so we're called when peer connects
   changeState(LISTENING);
@@ -217,6 +244,12 @@ void Pair::connect(const Address& peer) {
   throwIfException();
 
   peer_ = peer;
+
+  std::ofstream glooLog;
+
+  glooLog.open("gloo_log" , std::ofstream::out | std::ofstream::app);
+  glooLog << std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count() << ", CONNECT started connect() function \n";
+  glooLog.close();
 
   // Addresses have to have same family
   if (self_.ss_.ss_family != peer_.ss_.ss_family) {
@@ -247,6 +280,10 @@ void Pair::connect(const Address& peer) {
     GLOO_THROW_INVALID_OPERATION_EXCEPTION("cannot connect to self");
   }
 
+  glooLog.open("gloo_log" , std::ofstream::out | std::ofstream::app);
+  glooLog << std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count() << ", CONNECT if negative, we are listening. rv: " << rv << "\n";
+  glooLog.close();
+
   // self_ < peer_; we are listening side.
   if (rv < 0) {
     waitUntilConnected(lock, true);
@@ -273,7 +310,14 @@ void Pair::connect(const Address& peer) {
     signalAndThrowException(GLOO_ERROR_MSG("setsockopt: ", strerror(errno)));
   }
 
-  // Connect to peer
+    struct sockaddr_in* sa = (struct sockaddr_in*)&self_.ss_;
+    struct sockaddr_in* sb = (struct sockaddr_in*)&peer_.ss_;
+
+    glooLog.open("gloo_log" , std::ofstream::out | std::ofstream::app);
+    glooLog << std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count() << ", CONNECT attempting to connect from: " << ntohs(sa->sin_port)  << " to " << ntohs(sb->sin_port) << "\n";
+    glooLog.close();
+
+    // Connect to peer
   rv = ::connect(fd_, (struct sockaddr*)&peer_.ss_, addrlen);
   if (rv == -1 && errno != EINPROGRESS) {
     ::close(fd_);
@@ -281,7 +325,10 @@ void Pair::connect(const Address& peer) {
     signalAndThrowException(GLOO_ERROR_MSG("connect: ", strerror(errno)));
   }
 
-  // Register with device so we're called when connection completes.
+    glooLog.open("gloo_log" , std::ofstream::out | std::ofstream::app);
+    glooLog << std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count() << ", CONNECT status " << rv << "\n";
+    glooLog.close();
+    // Register with device so we're called when connection completes.
   changeState(CONNECTING);
   device_->registerDescriptor(fd_, EPOLLIN | EPOLLOUT, this);
 
