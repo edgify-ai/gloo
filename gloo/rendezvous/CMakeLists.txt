@@ -2,7 +2,6 @@ set(GLOO_RENDEZVOUS_SRCS
   "${CMAKE_CURRENT_SOURCE_DIR}/context.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/file_store.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/hash_store.cc"
-  "${CMAKE_CURRENT_SOURCE_DIR}/edgify_store.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/prefix_store.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/store.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/context.cc"
@@ -11,7 +10,6 @@ set(GLOO_RENDEZVOUS_SRCS
 set(GLOO_RENDEZVOUS_HDRS
   "${CMAKE_CURRENT_SOURCE_DIR}/file_store.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/hash_store.h"
-  "${CMAKE_CURRENT_SOURCE_DIR}/edgify_store.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/prefix_store.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/store.h"
   "${CMAKE_CURRENT_SOURCE_DIR}/context.h"
