@@ -172,7 +172,7 @@ void Pair::listen() {
   // update the port number to be port+rank to avoid gaps
   int selfRank = context_->rank;
   int adjRank = (selfRank > rank_ ? rank_ : rank_ -1);
-  uint16_t adjPort = attr.port + adjRank;
+  int adjPort = attr.port + adjRank;
 
   // set the port
   auto family = (*(struct sockaddr_in*)&attr.ai_addr).sin_family;
