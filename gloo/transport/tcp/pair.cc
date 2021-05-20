@@ -170,6 +170,26 @@ void Pair::listen() {
     signalAndThrowException(GLOO_ERROR_MSG("setsockopt: ", strerror(errno)));
   }
 
+  // if we wish to use specific ports and not use ephemeral
+  if (attr.port != 0){
+
+      // calculate new port number to be port+rank to avoid gaps
+      int selfRank = context_->rank;
+      int adjRank = (selfRank > rank_ ? rank_ : rank_ -1);
+      int adjPort = attr.port + adjRank;
+
+      // set port by family
+      auto family = attr.ai_addr.ss_family;
+      // IPv4
+      if (family == AF_INET){
+          (*(struct sockaddr_in*)&attr.ai_addr).sin_port = htons(adjPort);
+      }
+          // IPv6
+      else{
+          (*(struct sockaddr_in6*)&attr.ai_addr).sin6_port = htons(adjPort);
+      }
+  }
+
   rv = bind(fd, (const sockaddr*)&attr.ai_addr, attr.ai_addrlen);
   if (rv == -1) {
     ::close(fd);
