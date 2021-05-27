@@ -182,6 +182,19 @@ std::shared_ptr<transport::Device> CreateDevice(struct attr attr) {
 Device::Device(const struct attr& attr) : attr_(attr) {
   int rv;
 
+  // if we wish to use specific ports and not use ephemeral
+  if (attr_.port != 0){
+      // set port by family
+      auto family = attr_.ai_addr.ss_family;
+      // IPv4
+      if (family == AF_INET){
+          (*(struct sockaddr_in*)&attr_.ai_addr).sin_port = htons(attr_.port);
+      }
+      // IPv6
+      else{
+          (*(struct sockaddr_in6*)&attr_.ai_addr).sin6_port = htons(attr_.port);
+      }
+  }
   loop_ = libuv::Loop::create();
 
   // Use async handle to trigger the event loop to

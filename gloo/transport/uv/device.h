@@ -37,6 +37,7 @@ struct attr {
   /* implicit */ attr(const char* ptr) : hostname(ptr) {}
 
   std::string hostname;
+  int port = 0; //initialize to 0 will use ephemeral ports
 
   std::string iface;
 
